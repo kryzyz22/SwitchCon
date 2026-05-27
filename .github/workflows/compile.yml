@@ -10,20 +10,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    # 1. La máquina base (con NodeJS) descarga tus archivos
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
         submodules: 'recursive'
 
-    # 2. Se llama al contenedor de Espressif v4.4 únicamente para compilar
     - name: Compile with ESP-IDF
       uses: docker://espressif/idf:release-v4.4
       with:
         entrypoint: /bin/bash
-        args: -c "git config --global --add safe.directory '*' && cd ESP32/source/firmware && idf.py build"
+        args: -c "git config --global --add safe.directory '*' && . $IDF_PATH/export.sh && cd ESP32/source/firmware && idf.py build"
 
-    # 3. Guardamos los binarios resultantes
     - name: Upload Build Artifacts
       uses: actions/upload-artifact@v4
       with:
