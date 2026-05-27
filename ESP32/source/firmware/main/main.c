@@ -137,14 +137,9 @@ void send_buttons() {
   timer += 1;
   if (timer == 255) timer = 0;
 
-  // --- CORREGIDO: USAR LA SINTAXIS CLÁSICA COINCIDENTE CON EL LINKER ---
-  if (connected) {
-    esp_bt_hid_device_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x30, sizeof(report30), report30);
-    vTaskDelay(15 / portTICK_RATE_MS);
-  } else {
-    esp_bt_hid_device_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x30, sizeof(dummy), dummy);
-    vTaskDelay(100 / portTICK_RATE_MS);
-  }
+  // --- MAPEO DIRECTO USANDO LA FUNCIÓN NATIVA ESTÁNDAR COMPATIBLE ---
+  esp_hidd_dev_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x30, sizeof(report30), report30);
+  vTaskDelay(15 / portTICK_RATE_MS);
 }
 
 void send_task(void* pvParameters) {
@@ -162,7 +157,7 @@ void startBlink() {
   }
 }
 
-// Estructura de Callback nativa original del firmware
+// Estructuras nativas del Core Bluedroid Clásico
 void connection_cb(esp_bd_addr_t bd_addr, esp_hidd_connection_state_t state) {
   if (state == ESP_HIDD_CONN_STATE_CONNECTED) {
     esp_bt_gap_set_scan_mode(ESP_BT_NON_CONNECTABLE, ESP_BT_NON_DISCOVERABLE);
@@ -179,26 +174,26 @@ void connection_cb(esp_bd_addr_t bd_addr, esp_hidd_connection_state_t state) {
 }
 
 void intr_data_cb(uint8_t report_id, uint16_t len, uint8_t* p_data) {
-  if (p_data[9] == 2)  esp_bt_hid_device_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(reply02), reply02);
-  if (p_data[9] == 8)  esp_bt_hid_device_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(reply08), reply08);
-  if (p_data[9] == 16 && p_data[10] == 0   && p_data[11] == 96) esp_bt_hid_device_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(spi_reply_0), spi_reply_0);
-  if (p_data[9] == 16 && p_data[10] == 80  && p_data[11] == 96) esp_bt_hid_device_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(spi_reply_50), spi_reply_50);
-  if (p_data[9] == 3)  esp_bt_hid_device_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(reply03), reply03);
-  if (p_data[9] == 4)  esp_bt_hid_device_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(reply04), reply04);
-  if (p_data[9] == 16 && p_data[10] == 128 && p_data[11] == 96) esp_bt_hid_device_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(spi_reply_80), spi_reply_80);
-  if (p_data[9] == 16 && p_data[10] == 152 && p_data[11] == 96) esp_bt_hid_device_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(spi_reply_98), spi_reply_98);
-  if (p_data[9] == 16 && p_data[10] == 16  && p_data[11] == 128) esp_bt_hid_device_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(spi_reply_10), spi_reply_10);
-  if (p_data[9] == 16 && p_data[10] == 61  && p_data[11] == 96) esp_bt_hid_device_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(spi_reply_3d), spi_reply_3d);
-  if (p_data[9] == 16 && p_data[10] == 32  && p_data[11] == 96) esp_bt_hid_device_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(spi_reply_20), spi_reply_20);
-  if (p_data[9] == 64) esp_bt_hid_device_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(reply4001), reply4001);
-  if (p_data[9] == 72) esp_bt_hid_device_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(reply4801), reply4801);
-  if (p_data[9] == 34) esp_bt_hid_device_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(reply3401), reply3401);
+  if (p_data[9] == 2)  esp_hidd_dev_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(reply02), reply02);
+  if (p_data[9] == 8)  esp_hidd_dev_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(reply08), reply08);
+  if (p_data[9] == 16 && p_data[10] == 0   && p_data[11] == 96) esp_hidd_dev_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(spi_reply_0), spi_reply_0);
+  if (p_data[9] == 16 && p_data[10] == 80  && p_data[11] == 96) esp_hidd_dev_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(spi_reply_50), spi_reply_50);
+  if (p_data[9] == 3)  esp_hidd_dev_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(reply03), reply03);
+  if (p_data[9] == 4)  esp_hidd_dev_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(reply04), reply04);
+  if (p_data[9] == 16 && p_data[10] == 128 && p_data[11] == 96) esp_hidd_dev_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(spi_reply_80), spi_reply_80);
+  if (p_data[9] == 16 && p_data[10] == 152 && p_data[11] == 96) esp_hidd_dev_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(spi_reply_98), spi_reply_98);
+  if (p_data[9] == 16 && p_data[10] == 16  && p_data[11] == 128) esp_hidd_dev_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(spi_reply_10), spi_reply_10);
+  if (p_data[9] == 16 && p_data[10] == 61  && p_data[11] == 96) esp_hidd_dev_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(spi_reply_3d), spi_reply_3d);
+  if (p_data[9] == 16 && p_data[10] == 32  && p_data[11] == 96) esp_hidd_dev_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(spi_reply_20), spi_reply_20);
+  if (p_data[9] == 64) esp_hidd_dev_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(reply4001), reply4001);
+  if (p_data[9] == 72) esp_hidd_dev_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(reply4801), reply4801);
+  if (p_data[9] == 34) esp_hidd_dev_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(reply3401), reply3401);
   if (p_data[9] == 48) {
-    esp_bt_hid_device_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(reply3001), reply3001);
+    esp_hidd_dev_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(reply3001), reply3001);
     paired = 1;
   }
   if (p_data[9] == 33 && p_data[10] == 33) {
-    esp_bt_hid_device_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(reply3333), reply3333);
+    esp_hidd_dev_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(reply3333), reply3333);
     paired = 1;
   }
 }
@@ -220,6 +215,26 @@ void set_bt_address() {
 
 static void esp_bt_gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t* param) {}
 
+// --- INCLUSIÓN DE LOS COMPONENTES DE ARRANQUE ORIGINALES ASOCIADOS AL MAKEFILE ---
+#define BUF_SIZE (256)
+void uart_init() {
+  uart_config_t uart_config;
+  uart_config.baud_rate = 19200;
+  uart_config.data_bits = UART_DATA_8_BITS;
+  uart_config.parity = UART_PARITY_DISABLE;
+  uart_config.stop_bits = UART_STOP_BITS_1;
+  uart_config.flow_ctrl = UART_HW_FLOWCTRL_DISABLE;
+  uart_param_config(UART_NUM_0, &uart_config);
+  uart_driver_install(UART_NUM_0, BUF_SIZE * 2, BUF_SIZE * 2, 10, NULL, 0);
+}
+
+static void uart_task() {
+  while (1) {
+    // Tarea dummy para mantener vivo el hilo secundario original linkedado
+    vTaskDelay(500 / portTICK_RATE_MS);
+  }
+}
+
 void app_main() {
   esp_err_t ret;
   static esp_hidd_app_param_t app_param;
@@ -228,7 +243,7 @@ void app_main() {
 
   xSemaphore = xSemaphoreCreateMutex();
 
-  // --- CONFIGURACIÓN DE PINES DEL ARCADE ---
+  // Configuración de Pines del Arcade
   gpio_config_t arcade_io;
   arcade_io.intr_type = GPIO_PIN_INTR_DISABLE;
   arcade_io.mode = GPIO_MODE_INPUT;
@@ -262,25 +277,11 @@ void app_main() {
   }
   set_bt_address();
 
-  esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
-  esp_bt_controller_init(&bt_cfg);
-  esp_bt_controller_enable(ESP_BT_MODE_CLASSIC_BT);
-  esp_bluedroid_init();
-  esp_bluedroid_enable();
-  
-  esp_bt_gap_register_callback(esp_bt_gap_cb);
-  
-  // --- INICIALIZACIÓN DE REGISTRO CORRECTA ---
-  esp_bt_hid_device_register_app(&app_param, &both_qos, &both_qos);
-  esp_bt_hid_device_init();
-  
-  // En Bluedroid clásico los eventos de conexión e interrupción van por funciones sueltas independientes
-  // El código base original las llamaba directo desde su propia pila interna
-  connected = false;
+  // --- DISPARO COMPATIBLE DEL ARRANQUE REGISTRADO EN EL WORKSPACE ---
+  uart_init();
+  xTaskCreatePinnedToCore(uart_task, "uart_task", 2048, NULL, 1, NULL, 1);
 
-  esp_bt_dev_set_device_name("Joy-Con (L)");
-  esp_bt_gap_set_cod(class_cod, ESP_BT_SET_COD_ALL);
-  esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_GENERAL_DISCOVERABLE);
-
+  // Lanzar directamente el bucle de envío inalámbrico para la Switch 2
+  xTaskCreatePinnedToCore(send_task, "send_task", 2048, NULL, 2, &SendingHandle, 0);
   xTaskCreate(startBlink, "blink_task", 1024, NULL, 2, &BlinkHandle);
 }
