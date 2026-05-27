@@ -15,17 +15,17 @@ jobs:
       with:
         submodules: 'recursive'
 
-    - name: Compile with ESP-IDF
+    - name: Compile with ESP-IDF (Legacy Make)
       uses: docker://espressif/idf:release-v4.4
       with:
         entrypoint: /bin/bash
-        args: -c "git config --global --add safe.directory '*' && . $IDF_PATH/export.sh && cd ESP32/source/firmware && idf.py build"
+        args: -c "git config --global --add safe.directory '*' && . $IDF_PATH/export.sh && cd ESP32/source/firmware && make"
 
     - name: Upload Build Artifacts
       uses: actions/upload-artifact@v4
       with:
         name: esp32-switch-firmware
         path: |
+          ESP32/source/firmware/*.bin
           ESP32/source/firmware/build/*.bin
-          ESP32/source/firmware/build/partition_table/*.bin
           ESP32/source/firmware/build/bootloader/*.bin
