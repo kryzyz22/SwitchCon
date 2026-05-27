@@ -15,4 +15,4 @@ The ESP32 can act as a Left or Right Joy-Con, or a Pro Controller. (Wireless onl
 
 The protocol is described in Protocol.md. It is a carbon copy of SwitchInputEmulator's protocol, with the addition of SL and SR. 
 
-This was forked from [UARTSwitchCon](https://github.com/nullstalgia/UARTSwitchCon) and converted to be used as a standalone controller
+This was forked from [UARTSwitchCon](https://github.com/nullstalgia/UARTSwitchCon) and converted to be used as a standalone controller.
