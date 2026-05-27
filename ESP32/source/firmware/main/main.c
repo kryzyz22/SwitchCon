@@ -572,42 +572,79 @@ static uint8_t dummy[11] = {0x00, 0x8E, 0x00, 0x00, 0x00,
 
 void send_buttons() {
   xSemaphoreTake(xSemaphore, portMAX_DELAY);
+  
   report30[0] = timer;
   dummy[0] = timer;
-  // buttons
-  report30[2] = but1_send;
-  report30[3] = but2_send;
-  report30[4] = but3_send;
-  // encode left stick
-  // report30[6] = 0x00;
-  // report30[7] = 0x08;
-  // report30[8] = 0x80;
-  report30[5] = (lx_send << 4) & 0xF0;
-  report30[6] = (lx_send & 0xF0) >> 4;
-  report30[7] = ly_send;
-  // encode right stick
-  report30[8] = (cx_send << 4) & 0xF0;
-  report30[9] = (cx_send & 0xF0) >> 4;
-  report30[10] = cy_send;
+
+  // Inicializamos los bytes de reporte en 0
+  but1_send = 0;
+  but2_send = 0;
+  but3_send = 0;
+
+  // --- LECTURA DE LA PALANCA (D-PAD) ---
+  // En tu diagrama: UP=25, LEFT=26, DOWN=27, RIGHT=22
+  bool dpad_u = (gpio_get_level(25) == 0); 
+  bool dpad_l = (gpio_get_level(26) == 0); 
+  bool dpad_d = (gpio_get_level(27) == 0); 
+  bool dpad_r = (gpio_get_level(22) == 0); 
+
+  // --- LECTURA DE BOTONES PRINCIPALES ---
+  // Mapeados uno a uno según las flechas amarillas y azules de tu imagen
+  bool btn_a  = (gpio_get_level(14) == 0); // IO14
+  bool btn_b  = (gpio_get_level(12) == 0); // IO12
+  bool btn_x  = (gpio_get_level(19) == 0); // IO19
+  bool btn_y  = (gpio_get_level(17) == 0); // IO17
+  
+  bool btn_l  = (gpio_get_level(18) == 0); // IO18
+  bool btn_r  = (gpio_get_level(23) == 0); // IO23 (Flecha rosa arriba indica R)
+  bool btn_zl = (gpio_get_level(5)  == 0); // IO5
+  bool btn_zr = (gpio_get_level(16) == 0); // IO16
+
+  // --- MENÚS Y CRUCIALES (SL / SR) ---
+  bool btn_select = (gpio_get_level(15) == 0); // IO15 -> SELECT (Minus -)
+  bool btn_sl     = (gpio_get_level(13) == 0); // IO13 -> Botón SL físico en tu imagen
+  bool btn_sr     = (gpio_get_level(21) == 0); // IO21 -> Botón START usado como SR
+
+  // --- MAPEO DE BITS PARA NINTENDO SWITCH (Modo JOYCON_L Horizontal) ---
+  
+  // Asignamos las direcciones físicas de la palanca a lo que espera recibir la consola
+  but3_send = (dpad_d << 0) +   // Abajo (D-Pad Down)
+              (dpad_u << 1) +   // Arriba (D-Pad Up)
+              (dpad_r << 2) +   // Derecha (D-Pad Right)
+              (dpad_l << 3) +   // Izquierda (D-Pad Left)
+              (btn_sr << 4) +   // Botón SR lateral (Tu botón Start físico)
+              (btn_sl << 5) +   // Botón SL lateral (Tu botón Select físico)
+              (btn_l  << 6) +   // L
+              (btn_zl << 7);    // ZL
+
+  // Mapeamos los botones de acción principales (A, B, X, Y)
+  but1_send = (btn_y  << 0) +   // Y
+              (btn_x  << 1) +   // X
+              (btn_b  << 2) +   // B
+              (btn_a  << 3) +   // A
+              (btn_r  << 6) +   // R
+              (btn_zr << 7);    // ZR
+
+  // Botón Select del Arcade actuará como el botón "Minus (-)" nativo de la Switch
+  but2_send = (btn_select << 0); 
+
+  // Forzamos los sticks analógicos al centro para que no causen drift virtual
+  lx_send = 128;
+  ly_send = 128;
+  cx_send = 128;
+  cy_send = 128;
+
   xSemaphoreGive(xSemaphore);
   timer += 1;
   if (timer == 255) timer = 0;
 
-  if ((uart_state == SYNCED || uart_state == CHOCO_SYNCED) &&
-      (paired || connected)) {
-    // ESP_LOGI("AAAAAAAA", "AAAAAA");
-    esp_hid_device_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x30,
-                               sizeof(report30), report30);
-    send_byte_(RESP_USB_ACK);
-    vTaskDelay(15);
+  // Envío constante del paquete corregido para ESP-IDF
+  if (connected) {
+    esp_hid_device_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x30, sizeof(report30), report30);
+    vTaskDelay(15 / portTICK_RATE_MS); 
   } else {
-    esp_hid_device_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x30,
-                               sizeof(dummy), dummy);
-    vTaskDelay(100);
-  }
-
-  if (!paired || !(uart_state == SYNCED || uart_state == CHOCO_SYNCED)) {
-  } else {
+    esp_hid_device_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x30, sizeof(dummy), dummy);
+    vTaskDelay(100 / portTICK_RATE_MS);
   }
 }
 
@@ -1162,14 +1199,19 @@ void app_main() {
 
   xSemaphore = xSemaphoreCreateMutex();
 
-  gpio_config_t io_conf;
-  io_conf.intr_type = GPIO_PIN_INTR_DISABLE;
-  io_conf.mode = GPIO_MODE_OUTPUT;
-  io_conf.pin_bit_mask = PIN_SEL;
-  io_conf.pull_down_en = 0;
-  io_conf.pull_up_en = 0;
-  gpio_config(&io_conf);
-  // gap_callbacks = get_device_cb;
+  // --- CONFIGURACIÓN DE ENTRADAS GPIO ADAPTADA AL DIAGRAMA ---
+  gpio_config_t arcade_io;
+  arcade_io.intr_type = GPIO_PIN_INTR_DISABLE;
+  arcade_io.mode = GPIO_MODE_INPUT;
+  arcade_io.pull_up_en = 1;  // Pull-up activado
+  arcade_io.pull_down_en = 0;
+  
+  // Máscara de bits con la suma de todos tus pines del diagrama de Yakara:
+  // Pines: 5, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 25, 26, 27
+  arcade_io.pin_bit_mask = (1ULL<<5)  | (1ULL<<12) | (1ULL<<13) | (1ULL<<14) | (1ULL<<15) | 
+                           (1ULL<<16) | (1ULL<<17) | (1ULL<<18) | (1ULL<<19) | (1ULL<<21) | 
+                           (1ULL<<22) | (1ULL<<23) | (1ULL<<25) | (1ULL<<26) | (1ULL<<27);
+  gpio_config(&arcade_io);
 
   //一応名前とプロバイダーを純正と一緒にする ( For now, set these the same as a genuine product )
   app_param.name = "Wireless Gamepad";
