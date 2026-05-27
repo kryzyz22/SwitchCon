@@ -1,5 +1,5 @@
 //
-//  BlueCubeMod Firmware
+//  BlueCubeMod Firmware.
 //
 //
 //  Created by Nathan Reeves 2019
