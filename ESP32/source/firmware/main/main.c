@@ -589,35 +589,31 @@ void send_buttons() {
   bool dpad_r = (gpio_get_level(22) == 0); 
 
   // --- LECTURA DE BOTONES PRINCIPALES ---
-  // Mapeados uno a uno según las flechas amarillas y azules de tu imagen
   bool btn_a  = (gpio_get_level(14) == 0); // IO14
   bool btn_b  = (gpio_get_level(12) == 0); // IO12
   bool btn_x  = (gpio_get_level(19) == 0); // IO19
   bool btn_y  = (gpio_get_level(17) == 0); // IO17
   
   bool btn_l  = (gpio_get_level(18) == 0); // IO18
-  bool btn_r  = (gpio_get_level(23) == 0); // IO23 (Flecha rosa arriba indica R)
+  bool btn_r  = (gpio_get_level(23) == 0); // IO23
   bool btn_zl = (gpio_get_level(5)  == 0); // IO5
   bool btn_zr = (gpio_get_level(16) == 0); // IO16
 
   // --- MENÚS Y CRUCIALES (SL / SR) ---
   bool btn_select = (gpio_get_level(15) == 0); // IO15 -> SELECT (Minus -)
-  bool btn_sl     = (gpio_get_level(13) == 0); // IO13 -> Botón SL físico en tu imagen
+  bool btn_sl     = (gpio_get_level(13) == 0); // IO13 -> Botón SL
   bool btn_sr     = (gpio_get_level(21) == 0); // IO21 -> Botón START usado como SR
 
   // --- MAPEO DE BITS PARA NINTENDO SWITCH (Modo JOYCON_L Horizontal) ---
-  
-  // Asignamos las direcciones físicas de la palanca a lo que espera recibir la consola
-  but3_send = (dpad_d << 0) +   // Abajo (D-Pad Down)
-              (dpad_u << 1) +   // Arriba (D-Pad Up)
-              (dpad_r << 2) +   // Derecha (D-Pad Right)
-              (dpad_l << 3) +   // Izquierda (D-Pad Left)
-              (btn_sr << 4) +   // Botón SR lateral (Tu botón Start físico)
-              (btn_sl << 5) +   // Botón SL lateral (Tu botón Select físico)
+  but3_send = (dpad_d << 0) +   // Abajo
+              (dpad_u << 1) +   // Arriba
+              (dpad_r << 2) +   // Derecha
+              (dpad_l << 3) +   // Izquierda
+              (btn_sr << 4) +   // SR lateral (Start físico)
+              (btn_sl << 5) +   // SL lateral (Select físico)
               (btn_l  << 6) +   // L
               (btn_zl << 7);    // ZL
 
-  // Mapeamos los botones de acción principales (A, B, X, Y)
   but1_send = (btn_y  << 0) +   // Y
               (btn_x  << 1) +   // X
               (btn_b  << 2) +   // B
@@ -625,10 +621,9 @@ void send_buttons() {
               (btn_r  << 6) +   // R
               (btn_zr << 7);    // ZR
 
-  // Botón Select del Arcade actuará como el botón "Minus (-)" nativo de la Switch
-  but2_send = (btn_select << 0); 
+  but2_send = (btn_select << 0); // Minus (-)
 
-  // Forzamos los sticks analógicos al centro para que no causen drift virtual
+  // Forzamos los sticks analógicos al centro
   lx_send = 128;
   ly_send = 128;
   cx_send = 128;
@@ -638,12 +633,12 @@ void send_buttons() {
   timer += 1;
   if (timer == 255) timer = 0;
 
-  // Envío constante del paquete corregido para ESP-IDF
+  // --- ENVÍO DE REPORTES CORREGIDO CON SINTAXIS LEGACY ---
   if (connected) {
-    esp_hid_device_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x30, sizeof(report30), report30);
-    vTaskDelay(15 / portTICK_RATE_MS); 
+    esp_bt_hid_device_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x30, sizeof(report30), report30);
+    vTaskDelay(15 / portTICK_RATE_MS);
   } else {
-    esp_hid_device_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x30, sizeof(dummy), dummy);
+    esp_bt_hid_device_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x30, sizeof(dummy), dummy);
     vTaskDelay(100 / portTICK_RATE_MS);
   }
 }
