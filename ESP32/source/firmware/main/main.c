@@ -136,12 +136,12 @@ void send_buttons() {
   timer += 1;
   if (timer == 255) timer = 0;
 
-  // --- CAMBIADO A LA CORRESPONDIENTE API DE DISPOSITIVO HID GENERAL LINKADA ---
+  // --- REGRESADO A LA FUNCIÓN NATIVA ORIGINAL INTEGRADA EN EL REPOSITORIO DE YAKARA ---
   if (connected) {
-    esp_hidd_dev_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x30, sizeof(report30), report30);
+    esp_hidd_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x30, sizeof(report30), report30);
     vTaskDelay(15 / portTICK_RATE_MS);
   } else {
-    esp_hidd_dev_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x30, sizeof(dummy), dummy);
+    esp_hidd_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x30, sizeof(dummy), dummy);
     vTaskDelay(100 / portTICK_RATE_MS);
   }
 }
@@ -161,48 +161,50 @@ void startBlink() {
   }
 }
 
-// Callbacks mapeados para el sistema HID general (esp_hidd_dev)
+// Callbacks estructurados bajo el estándar estricto 'esp_hidd_cb_t' del core clásico
 static void esp_hd_cb(esp_hidd_cb_event_t event, esp_hidd_cb_param_t *param) {
     switch (event) {
-        case ESP_HIDD_EVENT_REG:
-            ESP_LOGI("HID", "APP Registered");
+        case ESP_HIDD_NEED_REG:
+            ESP_LOGI("HID", "Need Registration");
             break;
-        case ESP_HIDD_EVENT_CONN_STATE_CHG:
-            if (param->conn_state_chg.state == ESP_HIDD_CONN_STATE_CONNECTED) {
-                esp_bt_gap_set_scan_mode(ESP_BT_NON_CONNECTABLE, ESP_BT_NON_DISCOVERABLE);
-                if (BlinkHandle != NULL) { vTaskDelete(BlinkHandle); BlinkHandle = NULL; }
-                gpio_set_level(LED_GPIO, 1);
-                connected = true;
-                if (SendingHandle != NULL) { vTaskDelete(SendingHandle); SendingHandle = NULL; }
-                xTaskCreatePinnedToCore(send_task, "send_task", 2048, NULL, 2, &SendingHandle, 0);
-            } else if (param->conn_state_chg.state == ESP_HIDD_CONN_STATE_DISCONNECTED) {
+        case ESP_HIDD_NO_CONNECTION:
+            if (connected) {
                 xTaskCreate(startBlink, "blink_task", 1024, NULL, 1, &BlinkHandle);
                 paired = 0; connected = false;
                 esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_GENERAL_DISCOVERABLE);
             }
             break;
-        case ESP_HIDD_EVENT_INTR_DATA:
+        case ESP_HIDD_SEC_CONN:
+            esp_bt_gap_set_scan_mode(ESP_BT_NON_CONNECTABLE, ESP_BT_NON_DISCOVERABLE);
+            if (BlinkHandle != NULL) { vTaskDelete(BlinkHandle); BlinkHandle = NULL; }
+            gpio_set_level(LED_GPIO, 1);
+            connected = true;
+            if (SendingHandle != NULL) { vTaskDelete(SendingHandle); SendingHandle = NULL; }
+            xTaskCreatePinnedToCore(send_task, "send_task", 2048, NULL, 2, &SendingHandle, 0);
+            break;
+        case ESP_HIDD_NO_DATA:
             // Responder a los comandos de handshake de la Switch directamente aquí
-            if (param->intr_data.p_data[9] == 2)  esp_hidd_dev_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(reply02), reply02);
-            if (param->intr_data.p_data[9] == 8)  esp_hidd_dev_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(reply08), reply08);
-            if (param->intr_data.p_data[9] == 16 && param->intr_data.p_data[10] == 0   && param->intr_data.p_data[11] == 96) esp_hidd_dev_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(spi_reply_0), spi_reply_0);
-            if (param->intr_data.p_data[9] == 16 && param->intr_data.p_data[10] == 80  && param->intr_data.p_data[11] == 96) esp_hidd_dev_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(spi_reply_50), spi_reply_50);
-            if (param->intr_data.p_data[9] == 3)  esp_hidd_dev_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(reply03), reply03);
-            if (param->intr_data.p_data[9] == 4)  esp_hidd_dev_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(reply04), reply04);
-            if (param->intr_data.p_data[9] == 16 && param->intr_data.p_data[10] == 128 && param->intr_data.p_data[11] == 96) esp_hidd_dev_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(spi_reply_80), spi_reply_80);
-            if (param->intr_data.p_data[9] == 16 && param->intr_data.p_data[10] == 152 && param->intr_data.p_data[11] == 96) esp_hidd_dev_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(spi_reply_98), spi_reply_98);
-            if (param->intr_data.p_data[9] == 16 && param->intr_data.p_data[10] == 16  && param->intr_data.p_data[11] == 128) esp_hidd_dev_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(spi_reply_10), spi_reply_10);
-            if (param->intr_data.p_data[9] == 16 && param->intr_data.p_data[10] == 61  && param->intr_data.p_data[11] == 96) esp_hidd_dev_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(spi_reply_3d), spi_reply_3d);
-            if (param->intr_data.p_data[9] == 16 && param->intr_data.p_data[10] == 32  && param->intr_data.p_data[11] == 96) esp_hidd_dev_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(spi_reply_20), spi_reply_20);
-            if (param->intr_data.p_data[9] == 64) esp_hidd_dev_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(reply4001), reply4001);
-            if (param->intr_data.p_data[9] == 72) esp_hidd_dev_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(reply4801), reply4801);
-            if (param->intr_data.p_data[9] == 34) esp_hidd_dev_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(reply3401), reply3401);
-            if (param->intr_data.p_data[9] == 48) {
-                esp_hidd_dev_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(reply3001), reply3001);
+            // Usando los datos contenidos en el puntero directo .data
+            if (param->intr_data.data[9] == 2)  esp_hidd_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(reply02), reply02);
+            if (param->intr_data.data[9] == 8)  esp_hidd_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(reply08), reply08);
+            if (param->intr_data.data[9] == 16 && param->intr_data.data[10] == 0   && param->intr_data.data[11] == 96) esp_hidd_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(spi_reply_0), spi_reply_0);
+            if (param->intr_data.data[9] == 16 && param->intr_data.data[10] == 80  && param->intr_data.data[11] == 96) esp_hidd_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(spi_reply_50), spi_reply_50);
+            if (param->intr_data.data[9] == 3)  esp_hidd_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(reply03), reply03);
+            if (param->intr_data.data[9] == 4)  esp_hidd_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(reply04), reply04);
+            if (param->intr_data.data[9] == 16 && param->intr_data.data[10] == 128 && param->intr_data.data[11] == 96) esp_hidd_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(spi_reply_80), spi_reply_80);
+            if (param->intr_data.data[9] == 16 && param->intr_data.data[10] == 152 && param->intr_data.data[11] == 96) esp_hidd_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(spi_reply_98), spi_reply_98);
+            if (param->intr_data.data[9] == 16 && param->intr_data.data[10] == 16  && param->intr_data.data[11] == 128) esp_hidd_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(spi_reply_10), spi_reply_10);
+            if (param->intr_data.data[9] == 16 && param->intr_data.data[10] == 61  && param->intr_data.data[11] == 96) esp_hidd_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(spi_reply_3d), spi_reply_3d);
+            if (param->intr_data.data[9] == 16 && param->intr_data.data[10] == 32  && param->intr_data.data[11] == 96) esp_hidd_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(spi_reply_20), spi_reply_20);
+            if (param->intr_data.data[9] == 64) esp_hidd_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(reply4001), reply4001);
+            if (param->intr_data.data[9] == 72) esp_hidd_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(reply4801), reply4801);
+            if (param->intr_data.data[9] == 34) esp_hidd_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(reply3401), reply3401);
+            if (param->intr_data.data[9] == 48) {
+                esp_hidd_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(reply3001), reply3001);
                 paired = 1;
             }
-            if (param->intr_data.p_data[9] == 33 && param->intr_data.p_data[10] == 33) {
-                esp_hidd_dev_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(reply3333), reply3333);
+            if (param->intr_data.data[9] == 33 && param->intr_data.data[10] == 33) {
+                esp_hidd_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x21, sizeof(reply3333), reply3333);
                 paired = 1;
             }
             break;
@@ -278,10 +280,10 @@ void app_main() {
   
   esp_bt_gap_register_callback(esp_bt_gap_cb);
   
-  // --- USAR LAS LLAMADAS DEL COMPONENTE HID GENERICA INCLUIDAS POR DEFECTO ---
-  esp_hidd_dev_register_app(&app_param, &both_qos, &both_qos);
-  esp_hidd_dev_init();
-  esp_hidd_dev_register_callback(esp_hd_cb);
+  // --- RETORNADO AL ESTÁNDAR EXACTO DE NOMBRE DEL CORE CLÁSICO ---
+  esp_hidd_register_app(&app_param, &both_qos, &both_qos);
+  esp_hidd_init();
+  esp_hidd_register_callback(esp_hd_cb);
 
   esp_bt_dev_set_device_name("Joy-Con (L)");
   esp_bt_gap_set_cod(class_cod, ESP_BT_SET_COD_ALL);
