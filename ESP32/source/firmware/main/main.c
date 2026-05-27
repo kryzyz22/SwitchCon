@@ -48,7 +48,7 @@ uint8_t timer = 0;
 static uint8_t report30[48] = {[0] = 0x00, [1] = 0x8E, [11] = 0x80};
 static uint8_t dummy[11] = {0x00, 0x8E, 0x00, 0x00, 0x00, 0x00, 0x08, 0x80, 0x00, 0x08, 0x80};
 
-// Hhandshake replies de la Switch original
+// Handshake replies nativas para la Switch
 static uint8_t reply02[] = {0x00, 0x8E, 0x00, 0x00, 0x00, 0x00, 0x08, 0x80, 0x00, 0x00, 0x00, 0x00, 0x82, 0x02, 0x04, 0x00, JOYCON_L, 0x02, 0xD4, 0xF0, 0x57, 0x6E, 0xF0, 0xD7, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 static uint8_t reply08[] = {0x01, 0x8E, 0x00, 0x00, 0x00, 0x00, 0x08, 0x80, 0x00, 0x00, 0x00, 0x00, 0x80, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 static uint8_t reply03[] = {0x04, 0x8E, 0x00, 0x00, 0x00, 0x00, 0x08, 0x80, 0x00, 0x00, 0x00, 0x00, 0x80, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
@@ -136,7 +136,6 @@ void send_buttons() {
   timer += 1;
   if (timer == 255) timer = 0;
 
-  // --- USO DE FUNCIÓN HISTÓRICA COMPATIBLE ---
   if (connected) {
     esp_bt_hid_device_send_report(ESP_HIDD_REPORT_TYPE_INTRDATA, 0x30, sizeof(report30), report30);
     vTaskDelay(15 / portTICK_RATE_MS);
@@ -161,6 +160,7 @@ void startBlink() {
   }
 }
 
+// Estructura de callbacks nativa clásica de bluedroid (v4.4)
 void connection_cb(esp_bd_addr_t bd_addr, esp_hidd_connection_state_t state) {
   if (state == ESP_HIDD_CONN_STATE_CONNECTED) {
     esp_bt_gap_set_scan_mode(ESP_BT_NON_CONNECTABLE, ESP_BT_NON_DISCOVERABLE);
@@ -207,7 +207,7 @@ void set_bt_address() {
   if (nvs_open("storage", NVS_READWRITE, &my_handle) != ESP_OK) return;
   size_t addr_size = sizeof(bt_addr);
   if (nvs_get_blob(my_handle, "mac_addr", bt_addr, &addr_size) != ESP_OK) {
-    bt_addr[0] = 0xD4; bt_addr[1] = 0xF0; bt_addr[2] = 0x57; // OUI de Nintendo
+    bt_addr[0] = 0xD4; bt_addr[1] = 0xF0; bt_addr[2] = 0x57; 
     bt_addr[3] = esp_random() % 255; bt_addr[4] = esp_random() % 255; bt_addr[5] = esp_random() % 255;
     nvs_set_blob(my_handle, "mac_addr", bt_addr, sizeof(bt_addr));
     nvs_commit(my_handle);
@@ -220,14 +220,13 @@ static void esp_bt_gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t* pa
 
 void app_main() {
   esp_err_t ret;
-  static esp_hidd_callbacks_t callbacks;
   static esp_hidd_app_param_t app_param;
   static esp_hidd_qos_param_t both_qos;
   static esp_bt_cod_t class_cod;
 
   xSemaphore = xSemaphoreCreateMutex();
 
-  // --- CONFIGURACIÓN DE TU COSECHA DE PINES DEL ARCADE STICK ---
+  // --- CONFIGURACIÓN DE PINES ---
   gpio_config_t arcade_io;
   arcade_io.intr_type = GPIO_PIN_INTR_DISABLE;
   arcade_io.mode = GPIO_MODE_INPUT;
@@ -238,7 +237,6 @@ void app_main() {
                            (1ULL<<22) | (1ULL<<23) | (1ULL<<25) | (1ULL<<26) | (1ULL<<27);
   gpio_config(&arcade_io);
 
-  // Configuración del LED indicador
   gpio_config_t led_io;
   led_io.intr_type = GPIO_PIN_INTR_DISABLE;
   led_io.mode = GPIO_MODE_OUTPUT;
@@ -253,9 +251,6 @@ void app_main() {
   app_param.desc_list = hid_descriptor;
   app_param.desc_list_len = sizeof(hid_descriptor);
   memset(&both_qos, 0, sizeof(esp_hidd_qos_param_t));
-
-  callbacks.connection_state_cb = connection_cb;
-  callbacks.intr_data_cb = intr_data_cb;
 
   class_cod.minor = 2; class_cod.major = 5; class_cod.service = 1;
 
@@ -272,8 +267,11 @@ void app_main() {
   esp_bluedroid_enable();
   
   esp_bt_gap_register_callback(esp_bt_gap_cb);
+  
+  // --- INICIALIZACIÓN DE REGISTRO LEGACY SIN ARGUMENTOS ---
   esp_bt_hid_device_register_app(&app_param, &both_qos, &both_qos);
-  esp_bt_hid_device_init(&callbacks);
+  esp_bt_hid_device_init();
+  esp_bt_hid_device_register_callback(connection_cb);
 
   esp_bt_dev_set_device_name("Joy-Con (L)");
   esp_bt_gap_set_cod(class_cod, ESP_BT_SET_COD_ALL);
