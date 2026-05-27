@@ -8,6 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    container: espressif/idf:release-v4.4
 
     steps:
     - name: Checkout repository
@@ -15,11 +16,13 @@ jobs:
       with:
         submodules: 'recursive'
 
-    - name: Compile ESP-IDF Project
-      uses: espressif/idf-build-apps@v2
-      with:
-        path: 'ESP32/source/firmware'
-        target: 'esp32'
+    - name: Compile with ESP-IDF
+      run: |
+        cd ESP32/source/firmware
+        # Configuramos el entorno seguro para el contenedor
+        git config --global --add safe.directory /__w/${{ github.event.repository.name }}/${{ github.event.repository.name }}
+        # Compilamos el proyecto
+        idf.py build
 
     - name: Upload Build Artifacts
       uses: actions/upload-artifact@v4
